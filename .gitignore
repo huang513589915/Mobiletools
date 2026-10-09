@@ -1,0 +1,50 @@
+# Sensitive local records
+与ai对话记录.txt
+**/*对话记录*
+**/*聊天记录*
+**/*敏感*
+**/*secret*
+**/*secrets*
+**/*password*
+**/*passwd*
+**/*token*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/.env
+**/.env.*
+
+# Local IDE and OS files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+*.user
+*.suo
+*.swp
+Thumbs.db
+Desktop.ini
+
+# Temporary and generated QA outputs
+**/render_*/
+**/demo-check-*.png
+**/*.log
+**/*.tmp
+**/*.bak
+
+# Python local artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Build and package outputs
+dist/
+build/
+out/
+*.zip
+*.tar
+*.gz
+
+# Local Git ACL repair backup
+.git.acl-backup-*/
