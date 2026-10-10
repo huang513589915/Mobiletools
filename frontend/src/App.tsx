@@ -9,7 +9,7 @@ import {
   DatabaseOutlined, FileSearchOutlined, PlusOutlined, ReloadOutlined,
   SettingOutlined, SolutionOutlined,
 } from '@ant-design/icons'
-import { fetchHealth } from './api'
+import { Customer, fetchCustomers, fetchHealth, fetchTasks, Task } from './api'
 
 const { Header, Sider, Content } = Layout
 
@@ -24,18 +24,18 @@ const menuItems = [
   { key: 'settings', icon: <SettingOutlined />, label: '系统设置' },
 ]
 
-const customers = [
-  { key: '1', name: '华东智联科技有限公司', manager: '李晓敏', balance: '¥38,600', status: '高风险', due: '已逾期 12 天', type: '专线' },
-  { key: '2', name: '城市建设集团', manager: '王芳', balance: '¥12,800', status: '待跟进', due: '7 天后到期', type: '集团专线' },
-  { key: '3', name: '新城物业服务有限公司', manager: '陈琳', balance: '¥2,300', status: '需核实', due: '余额低于阈值', type: '云业务' },
-  { key: '4', name: '远海物流发展有限公司', manager: '赵强', balance: '¥8,900', status: '正常', due: '30 天后到期', type: '专线' },
+const demoCustomers: Customer[] = [
+  { id: 1, name: '华东智联科技有限公司', manager: '李晓敏', balance: 38600, status: '高风险', due: '已逾期 12 天', type: '专线' },
+  { id: 2, name: '城市建设集团', manager: '王芳', balance: 12800, status: '待跟进', due: '7 天后到期', type: '集团专线' },
+  { id: 3, name: '新城物业服务有限公司', manager: '陈琳', balance: 2300, status: '需核实', due: '余额低于阈值', type: '云业务' },
+  { id: 4, name: '远海物流发展有限公司', manager: '赵强', balance: 8900, status: '正常', due: '30 天后到期', type: '专线' },
 ]
 
-const tasks = [
-  { key: '1', title: '联系华东智联科技有限公司催收欠费', owner: '李晓敏', deadline: '2026-10-10', status: '待处理', priority: '高' },
-  { key: '2', title: '确认城市建设集团专线续签意向', owner: '王芳', deadline: '2026-10-12', status: '进行中', priority: '中' },
-  { key: '3', title: '核实新城物业余额预警准确性', owner: '陈琳', deadline: '2026-10-11', status: '待处理', priority: '高' },
-  { key: '4', title: '处理 9 月欠费明细异常记录', owner: '后台台席', deadline: '2026-10-15', status: '已完成', priority: '低' },
+const demoTasks: Task[] = [
+  { id: 1, title: '联系华东智联科技有限公司催收欠费', owner: '李晓敏', deadline: '2026-10-10', status: '待处理', priority: '高' },
+  { id: 2, title: '确认城市建设集团专线续签意向', owner: '王芳', deadline: '2026-10-12', status: '进行中', priority: '中' },
+  { id: 3, title: '核实新城物业余额预警准确性', owner: '陈琳', deadline: '2026-10-11', status: '待处理', priority: '高' },
+  { id: 4, title: '处理 9 月欠费明细异常记录', owner: '后台台席', deadline: '2026-10-15', status: '已完成', priority: '低' },
 ]
 
 const statusColor: Record<string, string> = {
@@ -54,7 +54,7 @@ function PageToolbar({ action, onAction }: { action?: string; onAction: () => vo
   </div>
 }
 
-function Dashboard({ onNavigate }: { onNavigate: (key: string) => void }) {
+function Dashboard({ customers, onNavigate }: { customers: Customer[]; onNavigate: (key: string) => void }) {
   return <>
     <div className="page-intro">
       <div><Typography.Text type="secondary">2026 年 10 月 10 日 · 数据快照待接入</Typography.Text><Typography.Title level={3}>今天需要优先处理的事项</Typography.Title></div>
@@ -68,7 +68,7 @@ function Dashboard({ onNavigate }: { onNavigate: (key: string) => void }) {
     </div>
     <div className="content-grid">
       <Card title="重点风险客户" extra={<Button type="link" onClick={() => onNavigate('ledger')}>查看台账</Button>}>
-        <div className="risk-list">{customers.slice(0, 3).map((item) => <div className="risk-row" key={item.key}><div><strong>{item.name}</strong><span>{item.balance} · {item.due}</span></div><Tag color={statusColor[item.status]}>{item.status}</Tag></div>)}</div>
+        <div className="risk-list">{customers.slice(0, 3).map((item) => <div className="risk-row" key={item.id}><div><strong>{item.name}</strong><span>¥{item.balance.toLocaleString()} · {item.due}</span></div><Tag color={statusColor[item.status]}>{item.status}</Tag></div>)}</div>
       </Card>
       <Card title="任务处理概况" extra={<Button type="link" onClick={() => onNavigate('reports')}>查看报表</Button>}>
         <div className="progress-summary"><div className="progress-number">68%</div><div><strong>本周任务按时完成率</strong><p>较上周提升 8%，仍有 5 项任务临近截止。</p></div></div>
@@ -83,8 +83,12 @@ function App() {
   const [modalOpen, setModalOpen] = useState(false)
   const [messageApi, contextHolder] = message.useMessage()
   const health = useQuery({ queryKey: ['health'], queryFn: fetchHealth, retry: false })
+  const customersQuery = useQuery({ queryKey: ['customers'], queryFn: fetchCustomers, retry: false })
+  const tasksQuery = useQuery({ queryKey: ['tasks'], queryFn: fetchTasks, retry: false })
   const current = menuItems.find((item) => item.key === selectedKey) ?? menuItems[0]
   const showAction = (text: string) => messageApi.success(`${text}成功`)
+  const customers = customersQuery.data ?? demoCustomers
+  const tasks = tasksQuery.data ?? demoTasks
 
   const customerColumns = [
     { title: '客户名称', dataIndex: 'name', render: (value: string) => <strong>{value}</strong> },
@@ -100,11 +104,11 @@ function App() {
     { title: '截止日期', dataIndex: 'deadline' },
     { title: '优先级', dataIndex: 'priority', render: (value: string) => <Tag color={value === '高' ? 'error' : value === '中' ? 'warning' : 'default'}>{value}</Tag> },
     { title: '状态', dataIndex: 'status', render: (value: string) => <Tag color={statusColor[value]}>{value}</Tag> },
-    { title: '操作', render: (_: unknown, record: typeof tasks[number]) => record.status === '已完成' ? <Typography.Text type="secondary">已归档</Typography.Text> : <Button type="link" onClick={() => showAction('任务处理')}>标记完成</Button> },
+    { title: '操作', render: (_: unknown, record: Task) => record.status === '已完成' ? <Typography.Text type="secondary">已归档</Typography.Text> : <Button type="link" onClick={() => showAction('任务处理')}>标记完成</Button> },
   ]
 
   const renderPage = () => {
-    if (selectedKey === 'dashboard') return <Dashboard onNavigate={setSelectedKey} />
+    if (selectedKey === 'dashboard') return <Dashboard customers={customers} onNavigate={setSelectedKey} />
     if (selectedKey === 'ledger') return <><PageToolbar action="新增客户" onAction={() => showAction('新增客户')} /><Card title="客户统一台账"><Table columns={customerColumns} dataSource={customers} pagination={{ pageSize: 6 }} /></Card></>
     if (selectedKey === 'tasks') return <><PageToolbar action="新建任务" onAction={() => showAction('新建任务')} /><Card title="任务清单"><Table columns={taskColumns} dataSource={tasks} pagination={false} /></Card></>
     if (selectedKey === 'import') return <><PageToolbar action="导入数据" onAction={() => showAction('导入数据')} /><div className="content-grid"><Card title="最近接入记录"><Table pagination={false} columns={[{ title: '文件名称', dataIndex: 'name' }, { title: '接入时间', dataIndex: 'time' }, { title: '状态', dataIndex: 'status', render: (value: string) => <Tag color="success">{value}</Tag> }]} dataSource={[{ key: 1, name: '2026年10月欠费明细.xlsx', time: '今天 08:40', status: '已完成' }, { key: 2, name: '专线到期明细.xlsx', time: '昨天 17:20', status: '已完成' }]} /></Card><Card title="接入说明"><Typography.Paragraph>支持欠费明细、余额快照、专线到期明细等标准表格接入，导入后自动生成待核查任务。</Typography.Paragraph><Button icon={<ReloadOutlined />} onClick={() => showAction('数据校验')}>执行数据校验</Button></Card></div></>
