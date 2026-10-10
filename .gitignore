@@ -46,6 +46,10 @@ frontend/.vite/
 dist/
 build/
 out/
+**/target/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 *.zip
 *.tar
 *.gz
