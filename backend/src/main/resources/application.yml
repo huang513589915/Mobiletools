@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: enterprise-arrears-management
+  jackson:
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
