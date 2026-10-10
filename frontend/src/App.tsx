@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Alert, Button, Card, DatePicker, Empty, Input, Layout, Menu, Modal,
+  Alert, Button, Card, DatePicker, Empty, Form, Input, Layout, Menu, Modal,
   Progress, Select, Space, Statistic, Table, Tag, Typography, message,
 } from 'antd'
 import {
   AlertOutlined, BarChartOutlined, CheckCircleOutlined, DashboardOutlined,
-  DatabaseOutlined, FileSearchOutlined, PlusOutlined, ReloadOutlined,
+  DatabaseOutlined, FileSearchOutlined, LogoutOutlined, PlusOutlined, ReloadOutlined,
   SettingOutlined, SolutionOutlined,
 } from '@ant-design/icons'
-import { Customer, fetchCustomers, fetchHealth, fetchTasks, Task } from './api'
+import { AuthUser, Customer, fetchCurrentUser, fetchCustomers, fetchHealth, fetchTasks, signIn, signOut, Task } from './api'
 
 const { Header, Sider, Content } = Layout
 
@@ -78,17 +78,81 @@ function Dashboard({ customers, onNavigate }: { customers: Customer[]; onNavigat
   </>
 }
 
+function LoginScreen({
+  loading,
+  error,
+  onSubmit,
+}: {
+  loading: boolean
+  error: string
+  onSubmit: (values: { username: string; password: string }) => void
+}) {
+  return (
+    <main className="login-shell">
+      <Card className="login-panel">
+        <div className="login-brand">
+          <div className="brand-mark">企</div>
+          <div>
+            <Typography.Title level={3}>政企客户管理</Typography.Title>
+            <Typography.Text type="secondary">风险与到期工作台</Typography.Text>
+          </div>
+        </div>
+        <Typography.Title level={4}>登录</Typography.Title>
+        {error && <Alert className="login-error" type="error" showIcon message={error} />}
+        <Form layout="vertical" onFinish={onSubmit} requiredMark={false}>
+          <Form.Item label="账号" name="username" rules={[{ required: true, message: '请输入账号' }]}>
+            <Input autoComplete="username" placeholder="请输入账号" />
+          </Form.Item>
+          <Form.Item label="密码" name="password" rules={[{ required: true, message: '请输入密码' }]}>
+            <Input.Password autoComplete="current-password" placeholder="请输入密码" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" loading={loading} block>登录系统</Button>
+        </Form>
+      </Card>
+    </main>
+  )
+}
+
 function App() {
   const [selectedKey, setSelectedKey] = useState('dashboard')
   const [modalOpen, setModalOpen] = useState(false)
+  const [authBusy, setAuthBusy] = useState(false)
+  const [authError, setAuthError] = useState('')
   const [messageApi, contextHolder] = message.useMessage()
+  const queryClient = useQueryClient()
   const health = useQuery({ queryKey: ['health'], queryFn: fetchHealth, retry: false })
-  const customersQuery = useQuery({ queryKey: ['customers'], queryFn: fetchCustomers, retry: false })
-  const tasksQuery = useQuery({ queryKey: ['tasks'], queryFn: fetchTasks, retry: false })
+  const auth = useQuery<AuthUser | null>({ queryKey: ['auth'], queryFn: fetchCurrentUser, retry: false })
+  const customersQuery = useQuery({ queryKey: ['customers'], queryFn: fetchCustomers, retry: false, enabled: Boolean(auth.data) })
+  const tasksQuery = useQuery({ queryKey: ['tasks'], queryFn: fetchTasks, retry: false, enabled: Boolean(auth.data) })
   const current = menuItems.find((item) => item.key === selectedKey) ?? menuItems[0]
   const showAction = (text: string) => messageApi.success(`${text}成功`)
   const customers = customersQuery.data ?? demoCustomers
   const tasks = tasksQuery.data ?? demoTasks
+
+  const handleLogin = async (values: { username: string; password: string }) => {
+    setAuthBusy(true)
+    setAuthError('')
+    try {
+      await signIn(values.username, values.password)
+      await queryClient.invalidateQueries({ queryKey: ['auth'] })
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : '登录失败')
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      queryClient.setQueryData(['auth'], null)
+      queryClient.removeQueries({ queryKey: ['customers'] })
+      queryClient.removeQueries({ queryKey: ['tasks'] })
+      messageApi.success('已退出登录')
+    } catch (error) {
+      messageApi.error(error instanceof Error ? error.message : '退出登录失败')
+    }
+  }
 
   const customerColumns = [
     { title: '客户名称', dataIndex: 'name', render: (value: string) => <strong>{value}</strong> },
@@ -118,6 +182,17 @@ function App() {
     return <Card title={current.label}><Empty description="系统设置功能将在账号、权限和参数配置接入后开放" /><Button onClick={() => showAction('设置保存')}>保存设置</Button></Card>
   }
 
+  if (auth.isLoading) {
+    return <main className="login-shell"><Typography.Text>正在检查登录状态…</Typography.Text></main>
+  }
+
+  if (!auth.data) {
+    return <>
+      {contextHolder}
+      <LoginScreen loading={authBusy} error={authError || (auth.isError ? '无法连接后端服务，请确认服务已启动。' : '')} onSubmit={handleLogin} />
+    </>
+  }
+
   return <Layout className="app-shell">
     {contextHolder}
     <Sider breakpoint="lg" collapsedWidth="0" className="app-sider">
@@ -125,7 +200,7 @@ function App() {
       <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} items={menuItems} onClick={({ key }) => setSelectedKey(key)} />
     </Sider>
     <Layout>
-      <Header className="app-header"><div><Typography.Text className="eyebrow">运营总览</Typography.Text><Typography.Title level={2}>{current.label}</Typography.Title></div><Space><Tag color={health.isSuccess ? 'success' : 'warning'}>{health.isSuccess ? '后端已连接' : '等待后端'}</Tag><Button type="primary" onClick={() => setSelectedKey('tasks')}>今日待办 12</Button></Space></Header>
+      <Header className="app-header"><div><Typography.Text className="eyebrow">运营总览</Typography.Text><Typography.Title level={2}>{current.label}</Typography.Title></div><Space><Tag color={health.isSuccess ? 'success' : 'warning'}>{health.isSuccess ? '后端已连接' : '等待后端'}</Tag><Typography.Text>{auth.data.username}</Typography.Text><Button icon={<LogoutOutlined />} onClick={handleLogout}>退出</Button><Button type="primary" onClick={() => setSelectedKey('tasks')}>今日待办 12</Button></Space></Header>
       <Content className="app-content">
         {!health.isSuccess && <Alert showIcon type="info" message="当前为演示数据模式" description="后端健康检查未连接时，页面仍可进行菜单和基础操作演示。" action={<Button size="small" onClick={() => health.refetch()}>重试</Button>} className="health-alert" />}
         {renderPage()}

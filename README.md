@@ -16,9 +16,9 @@ Mobiletools/
 ## 技术栈
 
 - 前端：React、TypeScript、Vite、Ant Design、TanStack Query、ECharts
-- 后端：Java 17、Spring Boot 3、Maven
-- 数据库：预留 PostgreSQL/MySQL 接入
-- 任务调度：Spring Scheduler
+- 后端：Java 17、Spring Boot 2.5.15、Maven
+- 数据库：MySQL，默认数据库名 `arrears_management`
+- 认证：Spring Security、本地数据库账号、服务端 Session
 
 ## 本地启动
 
@@ -27,20 +27,33 @@ Mobiletools/
 ```powershell
 cd frontend
 npm install
-npm run dev
+npm run dev -- --host 127.0.0.1
 ```
 
-前端默认地址：`http://localhost:5173`
+前端默认地址：`http://127.0.0.1:5173`
 
 ### 后端
 
 ```powershell
 cd backend
-..\.tools\apache-maven-3.9.9\bin\mvn.cmd spring-boot:run
+$env:APP_ADMIN_USERNAME = "admin"
+$env:APP_ADMIN_PASSWORD = "<本地初始密码>"
+mvn spring-boot:run
 ```
 
-后端默认地址：`http://localhost:8080`
+后端默认地址：`http://127.0.0.1:8080`
 
-健康检查：`GET http://localhost:8080/api/health`
+健康检查：`GET http://127.0.0.1:8080/api/health`
 
-当前骨架只提供工程结构、健康检查接口和前端基础工作台，真实数据源、数据库表结构和业务规则将在后续功能提交中逐步接入。
+首次启动时，系统会在数据库不存在该账号时创建本地账号。当前本机已创建账号 `admin`；初始密码通过 PowerShell 环境变量提供，已经存在的账号不会在每次启动时自动重置密码。密码不要写入源代码、README 或 Git。
+
+默认数据库连接为：
+
+```text
+地址：127.0.0.1:3306
+数据库：arrears_management
+用户名：root
+密码：空（如本机 MySQL 已设置密码，请设置 DB_PASSWORD）
+```
+
+当前版本已接入客户、任务查询和本地登录，Excel 导入、正式预警计算、任务写入、消息通知和外部系统同步仍在后续开发中。

@@ -8,6 +8,12 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; }
 .app-shell { min-height: 100vh; }
+.login-shell { display: grid; place-items: center; min-height: 100vh; padding: 24px; background: #f5f7fa; }
+.login-panel { width: min(420px, 100%); border: 1px solid #e4e7ec; box-shadow: 0 12px 32px rgba(16, 24, 40, .08); }
+.login-brand { display: flex; gap: 12px; align-items: center; margin-bottom: 28px; }
+.login-brand h3 { margin: 0 !important; }
+.login-panel h4 { margin-bottom: 20px !important; }
+.login-error { margin-bottom: 16px; }
 .app-sider { background: #142b3b !important; }
 .brand { display: flex; gap: 12px; align-items: center; height: 74px; padding: 16px; color: white; }
 .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: #0f766e; font-weight: 700; }
