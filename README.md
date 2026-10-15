@@ -71,6 +71,34 @@ mvn spring-boot:run
 Invoke-WebRequest http://127.0.0.1:8080/api/health
 ```
 
+## 一键启动和停止
+
+也可以使用项目脚本快速管理本地进程。启动脚本不会自动执行数据库迁移、清库或 Excel 导入；MySQL 必须先运行，并且数据库结构需要按上面的步骤初始化。
+
+```powershell
+.\scripts\start-project.ps1
+```
+
+脚本会检查 Java、Maven、Node.js、npm 和 MySQL 端口，首次运行时安装前端依赖，并在 `.runtime/project/logs/` 保存启动日志。默认会打开 `http://127.0.0.1:5173/`。
+
+如果本机 MySQL 是 Windows 服务，也可以让脚本尝试启动它：
+
+```powershell
+.\scripts\start-project.ps1 -MySqlServiceName MySQL84
+```
+
+结束项目：
+
+```powershell
+.\scripts\stop-project.ps1
+```
+
+停止脚本只结束启动脚本记录的后端和前端进程，不会停止原本已经运行的 MySQL。若启动脚本同时启动了 MySQL，可使用 `-StopMySql` 一并停止：
+
+```powershell
+.\scripts\stop-project.ps1 -StopMySql
+```
+
 ## 启动前端
 
 打开第二个终端：
@@ -134,6 +162,8 @@ scripts/                         本地辅助脚本
 - `docs/project-technical-archive/database-design.md`：当前数据库结构说明
 - `docs/project-technical-archive/api-reference.md`：后端接口清单
 - `project.md`：项目开发约定
+- `scripts/start-project.ps1`：快速启动本地项目
+- `scripts/stop-project.ps1`：停止由启动脚本管理的进程
 
 ## 安全提醒
 

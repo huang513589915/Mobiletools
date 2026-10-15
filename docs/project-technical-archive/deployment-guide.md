@@ -45,6 +45,28 @@ npm run dev -- --host 127.0.0.1
 
 默认地址分别为 `http://127.0.0.1:8080` 和 `http://127.0.0.1:5173`。
 
+## 快速启动与停止
+
+项目提供 PowerShell 脚本，脚本不会自动执行迁移、清库或导入数据：
+
+```powershell
+.\scripts\start-project.ps1
+```
+
+如果需要脚本启动一个已安装但未运行的 MySQL Windows 服务：
+
+```powershell
+.\scripts\start-project.ps1 -MySqlServiceName MySQL84
+```
+
+停止由脚本启动的前后端：
+
+```powershell
+.\scripts\stop-project.ps1
+```
+
+只有启动脚本代为启动 MySQL 时，才可以使用 `-StopMySql` 让停止脚本一并停止该服务。日志和 PID 清单写入已忽略的 `.runtime/project/` 目录。
+
 ## 测试
 
 ```powershell
