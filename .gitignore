@@ -54,5 +54,8 @@ frontend/vite.config.d.ts
 *.tar
 *.gz
 
+# Local database files, backups, logs, and runtime state
+.runtime/
+
 # Local Git ACL repair backup
 .git.acl-backup-*/
