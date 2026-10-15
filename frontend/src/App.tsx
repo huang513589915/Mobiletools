@@ -1,15 +1,22 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Alert, Button, Card, DatePicker, Empty, Form, Input, Layout, Menu, Modal,
-  Progress, Select, Space, Statistic, Table, Tag, Typography, message,
+  Select, Space, Statistic, Table, Tag, Typography, message,
 } from 'antd'
 import {
   AlertOutlined, BarChartOutlined, CheckCircleOutlined, DashboardOutlined,
   DatabaseOutlined, FileSearchOutlined, LogoutOutlined, PlusOutlined, ReloadOutlined,
   SettingOutlined, SolutionOutlined,
 } from '@ant-design/icons'
-import { AuthUser, Customer, fetchCurrentUser, fetchCustomers, fetchHealth, fetchTasks, signIn, signOut, Task } from './api'
+import { AuthUser, Customer, fetchCurrentUser, fetchCustomers, fetchHealth, fetchImportBatches, fetchTasks, fetchWorkbenchSummary, fetchServices, fetchBills, fetchExpiries, fetchExceptions, fetchBatchExceptions, fetchImportRows, fetchRiskResults, previewImport, confirmImport, createTask, signIn, signOut } from './api'
+import { AdminCenter } from './components/AdminCenter'
+import { RiskCenter, RuleAdmin } from './components/RiskCenter'
+import { TaskCenter } from './components/TaskCenter'
+import { ImportCenter } from './components/ImportCenter'
+import { IssueCenter } from './components/IssueCenter'
+import { Workbench } from './components/Workbench'
+import { CustomerLedger } from './components/CustomerLedger'
 
 const { Header, Sider, Content } = Layout
 
@@ -19,23 +26,10 @@ const menuItems = [
   { key: 'tasks', icon: <CheckCircleOutlined />, label: '任务中心' },
   { key: 'import', icon: <DatabaseOutlined />, label: '数据接入' },
   { key: 'issues', icon: <FileSearchOutlined />, label: '异常核查' },
-  { key: 'rules', icon: <AlertOutlined />, label: '预警规则' },
+  { key: 'risk', icon: <AlertOutlined />, label: '风险结果' },
+  { key: 'rules', icon: <SettingOutlined />, label: '预警规则' },
   { key: 'reports', icon: <BarChartOutlined />, label: '统计报表' },
   { key: 'settings', icon: <SettingOutlined />, label: '系统设置' },
-]
-
-const demoCustomers: Customer[] = [
-  { id: 1, name: '华东智联科技有限公司', manager: '李晓敏', balance: 38600, status: '高风险', due: '已逾期 12 天', type: '专线' },
-  { id: 2, name: '城市建设集团', manager: '王芳', balance: 12800, status: '待跟进', due: '7 天后到期', type: '集团专线' },
-  { id: 3, name: '新城物业服务有限公司', manager: '陈琳', balance: 2300, status: '需核实', due: '余额低于阈值', type: '云业务' },
-  { id: 4, name: '远海物流发展有限公司', manager: '赵强', balance: 8900, status: '正常', due: '30 天后到期', type: '专线' },
-]
-
-const demoTasks: Task[] = [
-  { id: 1, title: '联系华东智联科技有限公司催收欠费', owner: '李晓敏', deadline: '2026-10-10', status: '待处理', priority: '高' },
-  { id: 2, title: '确认城市建设集团专线续签意向', owner: '王芳', deadline: '2026-10-12', status: '进行中', priority: '中' },
-  { id: 3, title: '核实新城物业余额预警准确性', owner: '陈琳', deadline: '2026-10-11', status: '待处理', priority: '高' },
-  { id: 4, title: '处理 9 月欠费明细异常记录', owner: '后台台席', deadline: '2026-10-15', status: '已完成', priority: '低' },
 ]
 
 const statusColor: Record<string, string> = {
@@ -43,7 +37,7 @@ const statusColor: Record<string, string> = {
   待处理: 'error', 进行中: 'processing', 已完成: 'success',
 }
 
-function PageToolbar({ action, onAction }: { action?: string; onAction: () => void }) {
+function PageToolbar({ action, onAction = () => undefined }: { action?: string; onAction?: () => void }) {
   return <div className="page-toolbar">
     <Space wrap>
       <Input placeholder="搜索客户、任务或负责人" allowClear style={{ width: 250 }} />
@@ -54,25 +48,25 @@ function PageToolbar({ action, onAction }: { action?: string; onAction: () => vo
   </div>
 }
 
-function Dashboard({ customers, onNavigate }: { customers: Customer[]; onNavigate: (key: string) => void }) {
+function Dashboard({ customers, summary, onNavigate }: { customers: Customer[]; summary?: { highRiskCustomers: number; pendingTasks: number; overdueTasks: number; expiringServices: number; openExceptions: number }; onNavigate: (key: string) => void }) {
   return <>
     <div className="page-intro">
-      <div><Typography.Text type="secondary">2026 年 10 月 10 日 · 数据快照待接入</Typography.Text><Typography.Title level={3}>今天需要优先处理的事项</Typography.Title></div>
+      <div><Typography.Text type="secondary">真实业务数据 · 服务端实时统计</Typography.Text><Typography.Title level={3}>今天需要优先处理的事项</Typography.Title></div>
       <Button onClick={() => onNavigate('tasks')}>查看全部任务</Button>
     </div>
     <div className="stat-grid">
-      <Card><Statistic title="高风险客户" value={18} suffix="户" valueStyle={{ color: '#b42318' }} /></Card>
-      <Card><Statistic title="待处理任务" value={42} suffix="项" valueStyle={{ color: '#b54708' }} /></Card>
-      <Card><Statistic title="本月到期专线" value={27} suffix="条" valueStyle={{ color: '#0f766e' }} /></Card>
-      <Card><Statistic title="数据异常" value={6} suffix="项" valueStyle={{ color: '#475467' }} /></Card>
+      <Card><Statistic title="高风险客户" value={summary?.highRiskCustomers ?? 0} suffix="户" valueStyle={{ color: '#b42318' }} /></Card>
+      <Card><Statistic title="待处理任务" value={summary?.pendingTasks ?? 0} suffix="项" valueStyle={{ color: '#b54708' }} /></Card>
+      <Card><Statistic title="30天内到期专线" value={summary?.expiringServices ?? 0} suffix="条" valueStyle={{ color: '#0f766e' }} /></Card>
+      <Card><Statistic title="待核查异常" value={summary?.openExceptions ?? 0} suffix="项" valueStyle={{ color: '#475467' }} /></Card>
     </div>
     <div className="content-grid">
       <Card title="重点风险客户" extra={<Button type="link" onClick={() => onNavigate('ledger')}>查看台账</Button>}>
         <div className="risk-list">{customers.slice(0, 3).map((item) => <div className="risk-row" key={item.id}><div><strong>{item.name}</strong><span>¥{item.balance.toLocaleString()} · {item.due}</span></div><Tag color={statusColor[item.status]}>{item.status}</Tag></div>)}</div>
       </Card>
-      <Card title="任务处理概况" extra={<Button type="link" onClick={() => onNavigate('reports')}>查看报表</Button>}>
-        <div className="progress-summary"><div className="progress-number">68%</div><div><strong>本周任务按时完成率</strong><p>较上周提升 8%，仍有 5 项任务临近截止。</p></div></div>
-        <Progress percent={68} showInfo={false} strokeColor="#0f766e" />
+      <Card title="任务处理概况" extra={<Button type="link" onClick={() => onNavigate('tasks')}>打开任务中心</Button>}>
+        <Tag color={summary?.overdueTasks ? 'error' : 'default'}>逾期任务 {summary?.overdueTasks ?? 0} 项</Tag>
+        <div className="progress-summary"><div className="progress-number">{summary?.pendingTasks ?? 0}</div><div><strong>当前待处理任务</strong><p>统计范围按当前账号授权客户计算。</p></div></div>
       </Card>
     </div>
   </>
@@ -115,19 +109,58 @@ function LoginScreen({
 
 function App() {
   const [selectedKey, setSelectedKey] = useState('dashboard')
+  const [taskInitialOverdue, setTaskInitialOverdue] = useState<boolean>()
+  const [taskInitialUnfinished, setTaskInitialUnfinished] = useState(false)
+  const [pageContext, setPageContext] = useState<Record<string, string | number>>({})
   const [modalOpen, setModalOpen] = useState(false)
+  const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [authBusy, setAuthBusy] = useState(false)
   const [authError, setAuthError] = useState('')
+  const [taskBusy, setTaskBusy] = useState(false)
+  const [taskForm] = Form.useForm()
+  const taskCustomerId = Form.useWatch('customerId', taskForm)
+  const taskSourceType = Form.useWatch('sourceType', taskForm)
   const [messageApi, contextHolder] = message.useMessage()
   const queryClient = useQueryClient()
+  useEffect(() => {
+    const expired = () => {
+      void queryClient.cancelQueries()
+      queryClient.setQueryData(['auth'], null)
+      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'auth' })
+      setSelectedKey('dashboard')
+      setModalOpen(false)
+      setTaskModalOpen(false)
+      Modal.destroyAll()
+    }
+    window.addEventListener('session-expired', expired)
+    return () => window.removeEventListener('session-expired', expired)
+  }, [queryClient])
   const health = useQuery({ queryKey: ['health'], queryFn: fetchHealth, retry: false })
   const auth = useQuery<AuthUser | null>({ queryKey: ['auth'], queryFn: fetchCurrentUser, retry: false })
   const customersQuery = useQuery({ queryKey: ['customers'], queryFn: fetchCustomers, retry: false, enabled: Boolean(auth.data) })
-  const tasksQuery = useQuery({ queryKey: ['tasks'], queryFn: fetchTasks, retry: false, enabled: Boolean(auth.data) })
+  const tasksQuery = useQuery({ queryKey: ['tasks'], queryFn: () => fetchTasks(), retry: false, enabled: Boolean(auth.data) })
+  const summaryQuery = useQuery({ queryKey: ['workbench-summary'], queryFn: fetchWorkbenchSummary, retry: false, enabled: Boolean(auth.data) })
+  const importsQuery = useQuery({ queryKey: ['imports'], queryFn: fetchImportBatches, retry: false, enabled: auth.data?.role === 'ADMIN' })
+  const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices, retry: false, enabled: Boolean(auth.data) })
+  const billsQuery = useQuery({ queryKey: ['bills'], queryFn: fetchBills, retry: false, enabled: Boolean(auth.data) })
+  const expiriesQuery = useQuery({ queryKey: ['expiries'], queryFn: fetchExpiries, retry: false, enabled: Boolean(auth.data) })
+  const exceptionsQuery = useQuery({ queryKey: ['exceptions'], queryFn: () => fetchExceptions(), retry: false, enabled: Boolean(auth.data) })
+  const riskResultsQuery = useQuery({ queryKey: ['risk-results-ledger'], queryFn: () => fetchRiskResults(), retry: false, enabled: Boolean(auth.data) })
+  const issueDetailQuery = useQuery({ queryKey: ['exception-batch', pageContext.batchId], queryFn: () => fetchBatchExceptions(Number(pageContext.batchId)), retry: false, enabled: Boolean(auth.data && selectedKey === 'issues' && pageContext.batchId) })
+  const batchRowsQuery = useQuery({ queryKey: ['import-rows', pageContext.batchId], queryFn: () => fetchImportRows(Number(pageContext.batchId)), retry: false, enabled: Boolean(auth.data && selectedKey === 'import' && pageContext.batchId) })
   const current = menuItems.find((item) => item.key === selectedKey) ?? menuItems[0]
-  const showAction = (text: string) => messageApi.success(`${text}成功`)
-  const customers = customersQuery.data ?? demoCustomers
-  const tasks = tasksQuery.data ?? demoTasks
+  const visibleMenuItems = auth.data?.role === 'ADMIN'
+    ? menuItems
+    : menuItems.filter((item) => !['import', 'rules', 'settings'].includes(item.key))
+  const showAction = (text: string) => messageApi.success(text)
+  const customers = customersQuery.data ?? []
+  const imports = importsQuery.data ?? []
+  const services = servicesQuery.data ?? []
+  const bills = billsQuery.data ?? []
+  const expiries = expiriesQuery.data ?? []
+  const exceptions = exceptionsQuery.data ?? []
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const isAdmin = auth.data?.role === 'ADMIN'
 
   const handleLogin = async (values: { username: string; password: string }) => {
     setAuthBusy(true)
@@ -145,41 +178,53 @@ function App() {
   const handleLogout = async () => {
     try {
       await signOut()
+      await queryClient.cancelQueries()
       queryClient.setQueryData(['auth'], null)
-      queryClient.removeQueries({ queryKey: ['customers'] })
-      queryClient.removeQueries({ queryKey: ['tasks'] })
+      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'auth' })
+      setSelectedKey('dashboard')
+      setModalOpen(false)
+      setTaskModalOpen(false)
+      taskForm.resetFields()
+      Modal.destroyAll()
       messageApi.success('已退出登录')
     } catch (error) {
       messageApi.error(error instanceof Error ? error.message : '退出登录失败')
     }
   }
 
-  const customerColumns = [
-    { title: '客户名称', dataIndex: 'name', render: (value: string) => <strong>{value}</strong> },
-    { title: '客户经理', dataIndex: 'manager' },
-    { title: '业务类型', dataIndex: 'type' },
-    { title: '余额/欠费', dataIndex: 'balance' },
-    { title: '风险状态', dataIndex: 'status', render: (value: string) => <Tag color={statusColor[value]}>{value}</Tag> },
-    { title: '下一步', dataIndex: 'due' },
-    { title: '操作', render: () => <Button type="link" onClick={() => setModalOpen(true)}>查看详情</Button> },
-  ]
-  const taskColumns = [
-    { title: '任务事项', dataIndex: 'title' }, { title: '负责人', dataIndex: 'owner' },
-    { title: '截止日期', dataIndex: 'deadline' },
-    { title: '优先级', dataIndex: 'priority', render: (value: string) => <Tag color={value === '高' ? 'error' : value === '中' ? 'warning' : 'default'}>{value}</Tag> },
-    { title: '状态', dataIndex: 'status', render: (value: string) => <Tag color={statusColor[value]}>{value}</Tag> },
-    { title: '操作', render: (_: unknown, record: Task) => record.status === '已完成' ? <Typography.Text type="secondary">已归档</Typography.Text> : <Button type="link" onClick={() => showAction('任务处理')}>标记完成</Button> },
-  ]
+  const submitTask = async () => {
+    try {
+      const values = await taskForm.validateFields()
+      setTaskBusy(true)
+      const result = await createTask({
+        title: values.title,
+        deadline: values.deadline,
+        customerId: Number(values.customerId),
+        sourceType: values.sourceType ?? 'CUSTOMER',
+        sourceId: values.sourceType && values.sourceType !== 'CUSTOMER' ? Number(values.sourceId) : Number(values.customerId),
+      })
+      await Promise.all(['tasks', 'workbench-summary'].map(key => queryClient.invalidateQueries({ queryKey: [key] })))
+      setTaskModalOpen(false)
+      taskForm.resetFields()
+      messageApi.success(result.message)
+    } catch (error) {
+      if (error instanceof Error) messageApi.error(error.message)
+    } finally {
+      setTaskBusy(false)
+    }
+  }
 
   const renderPage = () => {
-    if (selectedKey === 'dashboard') return <Dashboard customers={customers} onNavigate={setSelectedKey} />
-    if (selectedKey === 'ledger') return <><PageToolbar action="新增客户" onAction={() => showAction('新增客户')} /><Card title="客户统一台账"><Table columns={customerColumns} dataSource={customers} pagination={{ pageSize: 6 }} /></Card></>
-    if (selectedKey === 'tasks') return <><PageToolbar action="新建任务" onAction={() => showAction('新建任务')} /><Card title="任务清单"><Table columns={taskColumns} dataSource={tasks} pagination={false} /></Card></>
-    if (selectedKey === 'import') return <><PageToolbar action="导入数据" onAction={() => showAction('导入数据')} /><div className="content-grid"><Card title="最近接入记录"><Table pagination={false} columns={[{ title: '文件名称', dataIndex: 'name' }, { title: '接入时间', dataIndex: 'time' }, { title: '状态', dataIndex: 'status', render: (value: string) => <Tag color="success">{value}</Tag> }]} dataSource={[{ key: 1, name: '2026年10月欠费明细.xlsx', time: '今天 08:40', status: '已完成' }, { key: 2, name: '专线到期明细.xlsx', time: '昨天 17:20', status: '已完成' }]} /></Card><Card title="接入说明"><Typography.Paragraph>支持欠费明细、余额快照、专线到期明细等标准表格接入，导入后自动生成待核查任务。</Typography.Paragraph><Button icon={<ReloadOutlined />} onClick={() => showAction('数据校验')}>执行数据校验</Button></Card></div></>
-    if (selectedKey === 'issues') return <><PageToolbar action="新建核查单" onAction={() => showAction('新建核查单')} /><Card title="异常核查"><Alert showIcon type="warning" message="当前有 6 条数据待核查" description="系统发现短信预警与业务台账存在不一致，请优先确认客户余额和到期日期。" /><Table className="table-spaced" pagination={false} columns={[{ title: '异常内容', dataIndex: 'issue' }, { title: '来源', dataIndex: 'source' }, { title: '发现时间', dataIndex: 'time' }, { title: '操作', render: () => <Button type="link" onClick={() => showAction('核查记录')}>开始核查</Button> }]} dataSource={[{ key: 1, issue: '短信显示欠费，台账余额正常', source: '短信反馈', time: '今天 08:15' }, { key: 2, issue: '到期日期缺失', source: '专线明细', time: '今天 07:50' }]} /></Card></>
-    if (selectedKey === 'rules') return <><PageToolbar action="新增规则" onAction={() => showAction('新增规则')} /><Card title="预警规则"><Table pagination={false} columns={[{ title: '规则名称', dataIndex: 'name' }, { title: '触发条件', dataIndex: 'condition' }, { title: '提醒对象', dataIndex: 'target' }, { title: '状态', dataIndex: 'enabled', render: (value: boolean) => <Tag color={value ? 'success' : 'default'}>{value ? '启用' : '停用'}</Tag> }, { title: '操作', render: () => <Button type="link" onClick={() => showAction('规则编辑')}>编辑</Button> }]} dataSource={[{ key: 1, name: '欠费预警', condition: '欠费金额 > 0', target: '客户经理、后台台席', enabled: true }, { key: 2, name: '到期提醒', condition: '距离到期 <= 30 天', target: '客户经理', enabled: true }, { key: 3, name: '余额不足', condition: '余额低于阈值', target: '客户经理', enabled: false }]} /></Card></>
-    if (selectedKey === 'reports') return <><div className="stat-grid"><Card><Statistic title="本月欠费回收率" value={82} suffix="%" /></Card><Card><Statistic title="按时完成率" value={68} suffix="%" /></Card><Card><Statistic title="异常核查完成" value={91} suffix="%" /></Card><Card><Statistic title="客户台账完整度" value={74} suffix="%" /></Card></div><Card title="运营统计"><Empty description="真实统计数据接入后将在这里展示" /><Button onClick={() => showAction('报表导出')}>导出报表</Button></Card></>
-    return <Card title={current.label}><Empty description="系统设置功能将在账号、权限和参数配置接入后开放" /><Button onClick={() => showAction('设置保存')}>保存设置</Button></Card>
+    if (selectedKey === 'dashboard') return <Workbench customers={customers} onTasks={overdue => { setTaskInitialOverdue(overdue); setTaskInitialUnfinished(true); setSelectedKey('tasks') }} onNavigate={(key, context = {}) => { setPageContext(context); setSelectedKey(key) }} />
+    if (selectedKey === 'ledger') return <CustomerLedger context={pageContext} onClearContext={()=>setPageContext({})} />
+    if (selectedKey === 'tasks') return <TaskCenter key={String(taskInitialOverdue) + taskInitialUnfinished} initialUnfinished={taskInitialUnfinished} initialOverdue={taskInitialOverdue} onCreate={() => setTaskModalOpen(true)} />
+    if (selectedKey === 'import') return <ImportCenter initialBatchId={pageContext.batchId ? Number(pageContext.batchId) : undefined} initialContext={pageContext} admin={isAdmin} />
+    if (selectedKey === 'issues') return <IssueCenter initialContext={pageContext} onNavigate={(key, context = {}) => { setPageContext(context); setSelectedKey(key) }} />
+    if (selectedKey === 'risk') return <RiskCenter customers={customers} admin={isAdmin} />
+    if (selectedKey === 'rules' && isAdmin) return <RuleAdmin />
+    if (selectedKey === 'settings' && isAdmin) return <AdminCenter customers={customers} />
+    if (selectedKey === 'reports') return <Card title="运营统计"><Empty description="当前版本暂未提供正式统计报表" /></Card>
+    return <Card title={current.label}><Empty description="当前账号暂无可用的管理操作" /></Card>
   }
 
   if (auth.isLoading) {
@@ -197,16 +242,27 @@ function App() {
     {contextHolder}
     <Sider breakpoint="lg" collapsedWidth="0" className="app-sider">
       <div className="brand"><div className="brand-mark">企</div><div><strong>政企客户管理</strong><span>风险与到期工作台</span></div></div>
-      <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} items={menuItems} onClick={({ key }) => setSelectedKey(key)} />
+      <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} items={visibleMenuItems} onClick={({ key }) => setSelectedKey(key)} />
     </Sider>
     <Layout>
-      <Header className="app-header"><div><Typography.Text className="eyebrow">运营总览</Typography.Text><Typography.Title level={2}>{current.label}</Typography.Title></div><Space><Tag color={health.isSuccess ? 'success' : 'warning'}>{health.isSuccess ? '后端已连接' : '等待后端'}</Tag><Typography.Text>{auth.data.username}</Typography.Text><Button icon={<LogoutOutlined />} onClick={handleLogout}>退出</Button><Button type="primary" onClick={() => setSelectedKey('tasks')}>今日待办 12</Button></Space></Header>
+      <Header className="app-header"><div><Typography.Text className="eyebrow">运营总览</Typography.Text><Typography.Title level={2}>{current.label}</Typography.Title></div><Space><Tag color={health.isSuccess ? 'success' : 'warning'}>{health.isSuccess ? '后端已连接' : '等待后端'}</Tag><Typography.Text>{auth.data.realName} · {auth.data.role === 'ADMIN' ? '管理员' : '客户经理'}</Typography.Text><Button icon={<LogoutOutlined />} onClick={handleLogout}>退出</Button><Button type="primary" onClick={() => setSelectedKey('tasks')}>任务中心</Button></Space></Header>
       <Content className="app-content">
-        {!health.isSuccess && <Alert showIcon type="info" message="当前为演示数据模式" description="后端健康检查未连接时，页面仍可进行菜单和基础操作演示。" action={<Button size="small" onClick={() => health.refetch()}>重试</Button>} className="health-alert" />}
+        {!health.isSuccess && <Alert showIcon type="warning" message="后端服务不可用" description="当前页面不会使用演示数据，请启动后端服务后重试。" action={<Button size="small" onClick={() => health.refetch()}>重试</Button>} className="health-alert" />}
         {renderPage()}
       </Content>
     </Layout>
-    <Modal title="客户详情" open={modalOpen} onCancel={() => setModalOpen(false)} footer={<Button type="primary" onClick={() => { setModalOpen(false); showAction('跟进任务创建') }}>创建跟进任务</Button>}><Typography.Paragraph>这里展示客户欠费、余额、专线到期和历史处理记录。当前使用演示数据，后续接入真实台账接口。</Typography.Paragraph></Modal>
+    <Modal title="新建跟进任务" open={taskModalOpen} onCancel={() => setTaskModalOpen(false)} onOk={submitTask} confirmLoading={taskBusy} okText="创建任务">
+      <Form form={taskForm} layout="vertical" requiredMark={false}>
+        <Form.Item name="title" label="任务标题" rules={[{ required: true, message: '请输入任务标题' }]}><Input maxLength={300} /></Form.Item>
+        <Form.Item name="deadline" label="计划完成日" rules={[{ required: true, message: '请选择计划完成日' }]}><Input type="date" /></Form.Item>
+        <Form.Item name="customerId" label="客户" rules={[{ required: true, message: '请选择客户' }]}>
+          <Select onChange={() => taskForm.setFieldsValue({ sourceId: undefined })} options={customers.map((customer) => ({ value: customer.id, label: `${customer.customerCode} ${customer.name}` }))} />
+        </Form.Item>
+        <Form.Item name="sourceType" label="任务来源" initialValue="CUSTOMER"><Select onChange={() => taskForm.setFieldsValue({ sourceId: undefined })} options={[{ value: 'CUSTOMER', label: '客户事项' }, { value: 'BUSINESS_SERVICE', label: '业务专线' }, { value: 'ARREARS_BILL', label: '欠费账单' }, { value: 'CONTRACT_EXPIRY', label: '业务到期' }]} /></Form.Item>
+        {taskSourceType && taskSourceType !== 'CUSTOMER' && <Form.Item name="sourceId" label="来源记录" rules={[{ required: true, message: '请选择来源记录' }]}><Select disabled={!taskCustomerId} options={(taskSourceType === 'BUSINESS_SERVICE' ? services : taskSourceType === 'ARREARS_BILL' ? bills : expiries).filter(item => item.customerCode === customers.find(c => c.id === taskCustomerId)?.customerCode).map(item => ({ value: item.id, label: 'billCode' in item ? item.billCode : `${item.serviceCode ?? ''}${'expiryDate' in item ? ' · ' + item.expiryDate : ''}` }))} /></Form.Item>}
+      </Form>
+    </Modal>
+    <Modal title="客户详情" open={modalOpen} onCancel={() => setModalOpen(false)} footer={<Button type="primary" onClick={() => { setModalOpen(false); showAction('跟进任务创建') }}>创建跟进任务</Button>}><Typography.Paragraph>客户详情以当前客户台账、欠费账单、业务专线和到期记录为准。请从对应业务页面处理任务。</Typography.Paragraph></Modal>
   </Layout>
 }
 

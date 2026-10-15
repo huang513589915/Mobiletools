@@ -22,15 +22,19 @@ public class DatabaseUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         return jdbcTemplate.query(
-                "SELECT username, password_hash, enabled FROM app_user WHERE username = ?",
+                "SELECT username, password_hash, enabled, role FROM app_user WHERE username = ?",
                 resultSet -> {
                     if (!resultSet.next()) {
                         throw new UsernameNotFoundException("Invalid username or password");
                     }
+                    String role = resultSet.getString("role");
+                    String authority = "ADMIN".equalsIgnoreCase(role)
+                            ? "ROLE_ADMIN"
+                            : "ROLE_CUSTOMER_MANAGER";
                     return User.withUsername(resultSet.getString("username"))
                             .password(resultSet.getString("password_hash"))
                             .disabled(!resultSet.getBoolean("enabled"))
-                            .authorities(List.of(new SimpleGrantedAuthority("ROLE_USER")))
+                            .authorities(List.of(new SimpleGrantedAuthority(authority)))
                             .build();
                 },
                 username

@@ -4,9 +4,10 @@ import com.mobiletools.arrears.common.api.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
@@ -28,9 +29,11 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
+    private final JdbcTemplate jdbcTemplate;
 
-    public AuthController(AuthenticationManager authenticationManager) {
+    public AuthController(AuthenticationManager authenticationManager, JdbcTemplate jdbcTemplate) {
         this.authenticationManager = authenticationManager;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @GetMapping("/csrf")
@@ -52,12 +55,15 @@ public class AuthController {
             SecurityContextHolder.setContext(context);
 
             HttpSession session = servletRequest.getSession(true);
+            servletRequest.changeSessionId();
             session.setAttribute(
                     HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
                     context
             );
-            return ResponseEntity.ok(ApiResponse.success(new UserResponse(authentication.getName())));
-        } catch (BadCredentialsException exception) {
+            audit(authentication.getName(), "LOGIN", "SUCCESS");
+            return ResponseEntity.ok(ApiResponse.success(userResponse(authentication)));
+        } catch (AuthenticationException exception) {
+            audit(request.username(), "LOGIN", "FAILED");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiResponse<>("AUTH_FAILED", "账号或密码错误", null));
         }
@@ -65,11 +71,13 @@ public class AuthController {
 
     @GetMapping("/me")
     public ApiResponse<UserResponse> currentUser(Authentication authentication) {
-        return ApiResponse.success(new UserResponse(authentication.getName()));
+        return ApiResponse.success(userResponse(authentication));
     }
 
     @PostMapping("/logout")
     public ApiResponse<Map<String, Boolean>> logout(HttpServletRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null) audit(authentication.getName(), "LOGOUT", "SUCCESS");
         HttpSession session = request.getSession(false);
         if (session != null) {
             session.invalidate();
@@ -79,8 +87,21 @@ public class AuthController {
     }
 
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {
+        @Override
+        public String toString() { return "LoginRequest[credentials=REDACTED]"; }
     }
 
-    public record UserResponse(String username) {
+    private void audit(String username, String operation, String result) {
+        jdbcTemplate.update("INSERT INTO operation_audit_log(operator_user_id,operation_type,target_type,result,detail) VALUES ((SELECT id FROM app_user WHERE username=?),?,'SESSION',?,?)",
+                username, operation, result, "认证操作，不记录密码或会话令牌");
+    }
+
+    private UserResponse userResponse(Authentication authentication) {
+        return jdbcTemplate.queryForObject("SELECT username, real_name, role FROM app_user WHERE username=?",
+                (rs, row) -> new UserResponse(rs.getString("username"), rs.getString("real_name"), rs.getString("role")),
+                authentication.getName());
+    }
+
+    public record UserResponse(String username, String realName, String role) {
     }
 }

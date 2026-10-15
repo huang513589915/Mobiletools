@@ -14,7 +14,7 @@ spring:
       minimum-idle: 1
   sql:
     init:
-      mode: always
+      mode: never
       encoding: UTF-8
   servlet:
     session:
@@ -36,4 +36,4 @@ management:
 app:
   bootstrap-admin:
     username: ${APP_ADMIN_USERNAME:admin}
-    password: ${APP_ADMIN_PASSWORD:}
+    password: ${APP_ADMIN_PASSWORD:123456}
