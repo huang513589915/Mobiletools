@@ -9,6 +9,15 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $runtimeDir = Join-Path $repoRoot '.runtime\project'
 $manifestPath = Join-Path $runtimeDir 'processes.json'
 
+function Wait-ProcessExited([int]$ProcessId, [int]$TimeoutSeconds) {
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) { return $true }
+        Start-Sleep -Milliseconds 300
+    }
+    return ($null -eq (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue))
+}
+
 function Stop-ManagedProcess($ProcessInfo) {
     $process = Get-Process -Id ([int]$ProcessInfo.pid) -ErrorAction SilentlyContinue
     if (-not $process) {
@@ -24,7 +33,11 @@ function Stop-ManagedProcess($ProcessInfo) {
     }
 
     & taskkill.exe /PID ([int]$ProcessInfo.pid) /T /F | Out-Null
-    if (Get-Process -Id ([int]$ProcessInfo.pid) -ErrorAction SilentlyContinue) {
+    # taskkill returns before the kernel finishes tearing the process down, so an
+    # immediate Get-Process check races with termination and reports a false
+    # failure (exactly what produced the "could not be fully stopped" warnings).
+    # Poll until the process is really gone, up to 15 seconds.
+    if (-not (Wait-ProcessExited ([int]$ProcessInfo.pid) 15)) {
         Write-Warning "$($ProcessInfo.name): process tree could not be fully stopped."
         return $false
     }
@@ -34,12 +47,30 @@ function Stop-ManagedProcess($ProcessInfo) {
 
 if (-not (Test-Path -LiteralPath $manifestPath)) {
     Write-Host 'No managed project processes were found.'
+    # Fallback cleanup: kill any process still bound to the project ports
+    # (leftovers from a previous run that failed before writing the manifest).
+    foreach ($port in @(3306, 8080, 5173)) {
+        try {
+            $conns = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
+            foreach ($conn in $conns) {
+                $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue
+                if ($proc) {
+                    Write-Host "Cleaning up orphan on port $port : $($proc.Name) (PID $($proc.Id))"
+                    & taskkill.exe /PID $proc.Id /T /F | Out-Null
+                }
+            }
+        }
+        catch { Write-Warning "Could not inspect port $port : $_" }
+    }
     exit 0
 }
 
 $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
 $allStopped = $true
-foreach ($processInfo in @($manifest.processes)) {
+# Stop application processes first, then MySQL last, for a cleaner shutdown.
+$nonMySql = @($manifest.processes | Where-Object { $_.name -ne 'mysql' })
+$mySql = @($manifest.processes | Where-Object { $_.name -eq 'mysql' })
+foreach ($processInfo in ($nonMySql + $mySql)) {
     if (-not (Stop-ManagedProcess $processInfo)) { $allStopped = $false }
 }
 

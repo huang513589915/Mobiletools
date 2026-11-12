@@ -16,7 +16,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
-import java.util.HashSet;
 import java.util.List;
 
 @RestController
@@ -29,11 +28,14 @@ public class UserController {
     private final JdbcTemplate jdbc;
     private final PasswordEncoder passwords;
     private final AdminAccess admin;
+    private final PinyinUsernameGenerator usernames;
 
-    public UserController(JdbcTemplate jdbc, PasswordEncoder passwords, AdminAccess admin) {
+    public UserController(JdbcTemplate jdbc, PasswordEncoder passwords, AdminAccess admin,
+                         PinyinUsernameGenerator usernames) {
         this.jdbc = jdbc;
         this.passwords = passwords;
         this.admin = admin;
+        this.usernames = usernames;
     }
 
     @GetMapping
@@ -42,12 +44,25 @@ public class UserController {
         return ApiResponse.success(jdbc.query("SELECT " + USER_COLUMNS + " FROM app_user ORDER BY id", USER_MAPPER));
     }
 
+    @GetMapping("/username-suggestion")
+    public ApiResponse<UsernameSuggestion> usernameSuggestion(Authentication authentication,
+                                                               @RequestParam String realName) {
+        admin.requireAdmin(authentication, "USER_USERNAME_SUGGEST", "USER", null);
+        String name = requiredText(realName, "realName", 100);
+        String username = usernames.baseUsername(name);
+        boolean available = jdbc.queryForObject("SELECT COUNT(*) FROM app_user WHERE username=?", Integer.class,
+                username) == 0;
+        return ApiResponse.success(new UsernameSuggestion(username, available));
+    }
+
     @PostMapping
     @Transactional(noRollbackFor = AccessDeniedException.class)
     public ApiResponse<UserResponse> create(Authentication authentication, @RequestBody CreateUserRequest request) {
         long actor = admin.requireAdmin(authentication, "USER_CREATE", "USER", null);
-        String username = requiredText(request.username(), "username", 100);
         String name = requiredText(request.realName(), "realName", 100);
+        String username = request.username() == null
+                ? usernames.baseUsername(name)
+                : requiredText(request.username(), "username", 100);
         if (!List.of("ADMIN", "CUSTOMER_MANAGER").contains(request.role() == null ? "" : request.role())) {
             throw new IllegalArgumentException("role must be ADMIN or CUSTOMER_MANAGER");
         }
@@ -69,6 +84,10 @@ public class UserController {
                 return statement;
             }, key);
         } catch (DuplicateKeyException exception) {
+            if (request.username() == null) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "姓名拼音登录名已占用，请在登录名中添加唯一后缀");
+            }
             throw new ResponseStatusException(HttpStatus.CONFLICT, "username already exists");
         }
         long id = key.getKey().longValue();
@@ -87,44 +106,6 @@ public class UserController {
         admin.audit(actor, request.enabled() ? "USER_ENABLE" : "USER_DISABLE", "USER", id, "SUCCESS",
                 "enabled=" + request.enabled());
         return ApiResponse.success(user(id, false));
-    }
-
-    @GetMapping("/{id}/scope")
-    public ApiResponse<ScopeResponse> scope(Authentication authentication, @PathVariable long id) {
-        admin.requireAdmin(authentication, "SCOPE_READ", "USER", id);
-        user(id, false);
-        return ApiResponse.success(new ScopeResponse(id, scopeIds(id)));
-    }
-
-    @PutMapping("/{id}/scope")
-    @Transactional(noRollbackFor = AccessDeniedException.class)
-    public ApiResponse<ScopeResponse> updateScope(Authentication authentication, @PathVariable long id,
-                                                 @RequestBody ScopeRequest request) {
-        long actor = admin.requireAdmin(authentication, "SCOPE_UPDATE", "USER", id);
-        UserResponse target = user(id, true);
-        if (!"CUSTOMER_MANAGER".equals(target.role())) {
-            throw new IllegalArgumentException("scope can only be assigned to CUSTOMER_MANAGER accounts");
-        }
-        List<Long> ids = request.customerIds();
-        if (ids == null || ids.size() > 10000 || ids.stream().anyMatch(value -> value == null || value <= 0)
-                || new HashSet<>(ids).size() != ids.size()) {
-            throw new IllegalArgumentException("customerIds must contain at most 10000 distinct positive IDs");
-        }
-        // Validate and lock every customer before replacing any existing assignments.
-        for (Long customerId : ids.stream().sorted().toList()) {
-            var customers = jdbc.queryForList("SELECT id FROM customer WHERE id=? AND record_status='ACTIVE'"
-                    + " AND customer_code IS NOT NULL AND customer_code<>'' FOR UPDATE", Long.class, customerId);
-            if (customers.isEmpty()) throw new IllegalArgumentException("customerIds contains invalid customer " + customerId);
-        }
-        List<Long> previous = scopeIds(id);
-        jdbc.update("DELETE FROM user_customer_scope WHERE user_id=?", id);
-        for (Long customerId : ids) {
-            jdbc.update("INSERT INTO user_customer_scope(user_id,customer_id,created_by) VALUES (?,?,?)", id, customerId, actor);
-        }
-        // Keep details bounded even for large scopes; the target and exact counts remain traceable.
-        admin.audit(actor, "SCOPE_UPDATE", "USER", id, "SUCCESS", "Customer scope replaced: beforeCount="
-                + previous.size() + ", afterCount=" + ids.size() + (ids.size() <= 100 ? ", customerIds=" + ids : ""));
-        return ApiResponse.success(new ScopeResponse(id, scopeIds(id)));
     }
 
     @Component
@@ -160,10 +141,6 @@ public class UserController {
         return users.get(0);
     }
 
-    private List<Long> scopeIds(long id) {
-        return jdbc.queryForList("SELECT customer_id FROM user_customer_scope WHERE user_id=? ORDER BY customer_id", Long.class, id);
-    }
-
     private static String requiredText(String value, String field, int limit) {
         if (value == null || value.isBlank() || value.strip().length() > limit) {
             throw new IllegalArgumentException(field + " is required and must be at most " + limit + " characters");
@@ -175,9 +152,8 @@ public class UserController {
         @Override
         public String toString() { return "CreateUserRequest[credentials=REDACTED]"; }
     }
+    public record UsernameSuggestion(String username, boolean available) {}
     public record EnabledRequest(Boolean enabled) {}
-    public record ScopeRequest(List<Long> customerIds) {}
-    public record ScopeResponse(long userId, List<Long> customerIds) {}
     public record UserResponse(long id, String username, String realName, String role, boolean enabled,
                                Timestamp createdAt, Timestamp updatedAt) {}
 }

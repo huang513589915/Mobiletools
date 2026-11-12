@@ -1,8 +1,13 @@
-# Sensitive local records
-与ai对话记录.txt
-**/*对话记录*
-**/*聊天记录*
-**/*敏感*
+﻿# Local business data and original uploaded workbooks
+excel/
+.runtime/
+**/ledger-original-workbooks/
+
+# Local secrets and credentials
+.env
+.env.*
+**/.env
+**/.env.*
 **/*secret*
 **/*secrets*
 **/*password*
@@ -12,10 +17,16 @@
 **/*.key
 **/*.p12
 **/*.pfx
-**/.env
-**/.env.*
 
-# Local IDE and OS files
+# Local conversation, assistant memory, and temporary records
+.workbuddy/
+**/*对话*.txt
+**/*对话*.md
+**/*聊天*.txt
+**/*聊天*.md
+**/*敏感*
+
+# Local IDE and operating-system files
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.example.json
@@ -32,6 +43,8 @@ Desktop.ini
 **/*.log
 **/*.tmp
 **/*.bak
+*-backup.sql
+*.dump
 
 # Python local artifacts
 __pycache__/
@@ -41,6 +54,7 @@ __pycache__/
 # Node.js dependencies and frontend build output
 node_modules/
 frontend/.vite/
+frontend/dist/
 
 # Build and package outputs
 dist/
@@ -53,9 +67,6 @@ frontend/vite.config.d.ts
 *.zip
 *.tar
 *.gz
-
-# Local database files, backups, logs, and runtime state
-.runtime/
 
 # Local Git ACL repair backup
 .git.acl-backup-*/

@@ -37,3 +37,5 @@ app:
   bootstrap-admin:
     username: ${APP_ADMIN_USERNAME:admin}
     password: ${APP_ADMIN_PASSWORD:123456}
+  ledger:
+    original-workbook-directory: ${LEDGER_WORKBOOK_DIRECTORY:../.runtime/ledger-original-workbooks}

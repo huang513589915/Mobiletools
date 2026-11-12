@@ -4,105 +4,13 @@ export type HealthResponse = {
   timestamp: string
 }
 
-export type Customer = {
-  id: number
-  customerCode: string | null
-  name: string
-  manager: string
-  type: string
-  balance: number
-  status: string
-  due: string
-}
-export type CustomerPage = { items: Customer[]; total: number; page: number; pageSize: number }
-export type CustomerFilters = { q?: string; status?: string; manager?: string; businessType?: string; riskLevel?: string; expiryFrom?: string; expiryTo?: string; exceptionStatus?: string; customerId?: number; page?: number; pageSize?: number; sort?: string; direction?: string }
-export type CustomerDetail = { customer: Record<string, unknown>; services: Array<Record<string, unknown>>; bills: Array<Record<string, unknown>>; expiries: Array<Record<string, unknown>>; risks: Array<Record<string, unknown>>; tasks: Array<Record<string, unknown>>; followUps: Array<Record<string, unknown>>; batches: Array<Record<string, unknown>> }
-export const fetchCustomerPage = (filters: CustomerFilters = {}) => {
-  const params = new URLSearchParams()
-  Object.entries(filters).forEach(([key,value]) => { if (value !== undefined && value !== '') params.set(key,String(value)) })
-  return fetchApi<CustomerPage>(`/api/customers/page?${params}`)
-}
-export const fetchCustomerDetail = (id: number) => fetchApi<CustomerDetail>(`/api/customers/${id}`)
-export type ReadOnlyPrecheck = { fileName:string;fileSha256:string;totalRows:number;validRows:number;excludedRows:number;invalidRows:number;workbookErrors:string[];rows:ImportPreview['rows'] }
-export async function precheckReadOnly(file: File): Promise<ReadOnlyPrecheck> {
-  const data=new FormData();data.append('file',file)
-  const response=await fetch('/api/imports/precheck-readonly',{method:'POST',body:data})
-  const body=await response.json() as {data:ReadOnlyPrecheck;message?:string}
-  if(!response.ok) throw new Error(body.message??`只读预检失败: ${response.status}`)
-  return body.data
-}
-
-export type Task = {
-  id: number
-  title: string
-  owner: string
-  deadline: string
-  status: string
-  priority: string
-  customerCode: string | null
-  customerName: string | null
-  overdue: boolean
-  overdueDays: number
-}
-
-export type WorkbenchSummary = {
-  highRiskCustomers: number
-  pendingTasks: number
-  overdueTasks: number
-  expiringServices: number
-  openExceptions: number
-  calculatedAt: string
-}
-export type WorkbenchFilters = { riskLevel?: string; owner?: string; businessType?: string; from?: string; to?: string; exceptionStatus?: string }
-export type WorkbenchItem = { kind: string; id: number; customerId?: number; customerCode?: string; customerName?: string; title: string; riskLevel?: string; status: string; eventDate: string; owner?: string; businessType?: string; batchId?: number; sourceRowNumber?: number; sheetName?: string; sourceCustomerCode?: string; sourceRowId?: number; overdueDays: number }
-export function fetchWorkbench(filters: WorkbenchFilters) {
-  const params = new URLSearchParams()
-  Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value) })
-  return Promise.all([fetchApi<WorkbenchSummary>(`/api/workbench/summary?${params}`), fetchApi<WorkbenchItem[]>(`/api/workbench/items?${params}`)])
-}
-
-export type ImportBatch = {
-  id: number
-  fileName: string
-  sourceType: string
-  status: string
-  totalRows: number
-  validRows: number
-  invalidRows: number
-  excludedRows?: number
-  insertedRows: number
-  updatedRows: number
-  duplicateRows: number
-  failedRows: number
-  createdAt: string
-}
-
-export type Service = { id: number; serviceCode: string; customerCode: string; customerName: string; serviceType: string; bandwidth: string | null; expiryDate: string | null; renewalStatus: string }
-export type ServicePage = { items: Service[]; total: number; page: number; pageSize: number }
-export type ServiceDetail = { service: Record<string,unknown>; bills:Array<Record<string,unknown>>; expiries:Array<Record<string,unknown>>; risks:Array<Record<string,unknown>>; tasks:Array<Record<string,unknown>> }
-export const fetchServiceDetail = (id:number) => fetchApi<ServiceDetail>(`/api/ledger/services/${id}`)
-export function fetchServicePage(filters: {from?:string;to?:string;q?:string;page?:number;pageSize?:number}) {
-  const params=new URLSearchParams();Object.entries(filters).forEach(([key,value])=>{if(value!==undefined&&value!=='')params.set(key,String(value))})
-  return fetchApi<ServicePage>(`/api/ledger/services/page?${params}`)
-}
-export type Bill = { id: number; billCode: string; customerCode: string; customerName: string; billingPeriod: string; dueAmount: number; paidAmount: number; arrearsAmount: number; status: string | null; dueDate: string | null }
-export type Expiry = { id: number; serviceCode: string | null; customerCode: string; customerName: string; expiryDate: string; renewalStatus: string }
-export type RiskRule = { id: number; code: string; name: string; type: string; threshold: number | null; operator: string; version: number; enabled: boolean }
-export type ExceptionRecord = { id: number; sourceRowId?: number | null; batchId?: number | null; sheetName?: string | null; sourceRowNumber?: number | null; customerCode?: string | null; type: string; businessKey: string | null; reason: string; status: string; resolution: string | null; createdAt: string }
-export type ImportRow = { id: number; batchId: number; sheetName: string; sourceRowNumber: number; businessKey: string | null; customerCode: string | null; status: string; category: string; errorMessage: string | null; errorCode: string | null; values: Record<string,string>; createdAt: string }
-
 export type AuthUser = {
   username: string
   realName: string
   role: 'ADMIN' | 'CUSTOMER_MANAGER'
 }
 
-export type TaskFilters = { status?: string; owner?: string; overdue?: boolean; priority?: string }
-export type FollowUp = { id: number; note: string; nextAction: string | null; createdBy: string; createdAt: string }
-export type TaskDetail = Task & { followUps: FollowUp[]; sourceType?: string; sourceId?: number; taskType?: string; closeReason?: string }
 export type AdminUser = AuthUser & { id: number; enabled: boolean; createdAt: string; updatedAt: string }
-export type RiskResult = { id: number; customerId: number; customerCode: string; customerName: string; ruleCode: string; ruleName: string; ruleVersion: number; observedValue: number; threshold: number; riskLevel: string; status: string; calculatedAt: string; sourceBatchId: number | null; sourceType: string; sourceId: number; runId: number }
-export type RiskRun = { id: number; status: string; scopeType: string; scopeValue: string | null; ruleVersions: string; startedAt: string; finishedAt: string | null; successCount: number; failureCount: number; totalCount: number; errorMessage: string | null }
 export type AuditFilters = { operatorUserId?: number; operationType?: string; targetType?: string; targetId?: number; result?: string; from?: string; to?: string }
 export type AuditLog = { id: number; operatorUsername?: string; operatorName?: string; operationType: string; targetType: string; targetId: number | null; result: string; detail: string | null; createdAt: string }
 
@@ -119,29 +27,286 @@ async function writeApi<T = void>(path: string, payload?: unknown, method = 'POS
   return body?.data as T
 }
 
-export const fetchTaskDetail = (id: number) => fetchApi<TaskDetail>(`/api/tasks/${id}`)
-export const fetchRiskTask = (id: number) => fetchApi<{ taskId?: number; message?: string }>(`/api/risk-recalculation/${id}/task`)
-export type TaskActionResult = { id: number; status: string }
-export const addFollowUp = (id: number, payload: { note: string; nextAction: string }) => writeApi<{ id: number; status: '跟进已保存' }>(`/api/tasks/${id}/follow-ups`, payload)
-export const startTask = (id: number) => writeApi<TaskActionResult>(`/api/tasks/${id}/start`)
-export const closeTask = (id: number, reason: string) => writeApi<TaskActionResult>(`/api/tasks/${id}/close`, { reason })
 export const fetchUsers = () => fetchApi<AdminUser[]>('/api/users')
 export const createUser = (payload: AuthUser & { password: string }) => writeApi('/api/users', payload)
+export type UsernameSuggestion = { username: string; available: boolean }
+export const fetchUsernameSuggestion = (realName: string) => {
+  const params = new URLSearchParams({ realName })
+  return fetchApi<UsernameSuggestion>(`/api/users/username-suggestion?${params}`)
+}
+export type AssignmentExceptionFilters = {
+  sourceType?: string; statisticsKey?: string; groupCode?: string; groupName?: string;
+  excelManagerName?: string; batchId?: number; status?: string; page?: number; pageSize?: number
+}
+export type AssignmentExceptionItem = {
+  id: number; snapshotRecordId: number; sourceType: 'ARREARS' | 'LINE_EXPIRY'; statisticsKey: string; groupCode: string;
+  groupName: string; excelManagerName: string; reason: string; batchId: number; originalFilename: string;
+  importRowId: number; sheetName: string; sourceRowNumber: number; identityKey: string;
+  exceptionType: string; status: 'OPEN' | 'RESOLVED'; resolution: string | null;
+  effectiveManagerUserId: number | null; effectiveManagerName: string | null;
+  handledByUserId: number | null; handledAt: string | null; createdAt: string
+}
+export type AssignmentExceptionPage = { items: AssignmentExceptionItem[]; total: number; page: number; pageSize: number }
+export type AssignmentExceptionDetail = {
+  item: AssignmentExceptionItem; rawFields: Array<{ columnIndex: number; header: string; value: string | null }>;
+  normalizedFields: Record<string, unknown>; errors: unknown[]; warnings: unknown[];
+  assignmentHistory: Array<{ previousManagerName: string | null; newManagerName: string; changedByUsername: string; changeType: string; reason: string; changedAt: string }>
+}
+export type ArrearsLedgerFilters = {
+  statisticsKey?: string; statisticsDateFrom?: string; statisticsDateTo?: string;
+  groupQuery?: string; accountId?: string; carryingProductName?: string;
+  effectiveManagerUserId?: number; workOrderStatus?: ArrearsWorkOrderStatus; page?: number; pageSize?: number
+}
+export type ArrearsWorkOrderStatus = '待处理' | '跟进中' | '已结清'
+export const arrearsWorkOrderStatuses: ArrearsWorkOrderStatus[] = ['待处理', '跟进中', '已结清']
+export type ArrearsLedgerItem = {
+  snapshotRecordId: number; statisticsKey: string; groupCode: string; groupName: string;
+  excelManagerName: string | null; effectiveManagerUserId: number | null; effectiveManagerName: string | null;
+  accountId: string; carryingProductName: string | null; endingArrearsAmount: number; agingValue: string | null;
+  workOrderId: number | null; workOrderStatus: ArrearsWorkOrderStatus;
+  lastHandledByUserId: number | null; lastHandledByName: string | null; lastHandledAt: string | null
+}
+export type ArrearsLedgerPage = {
+  items: ArrearsLedgerItem[]; total: number; page: number; pageSize: number;
+  statisticsKey: string | null; availableStatisticsKeys: string[]
+}
+export type ArrearsLedgerDetail = {
+  item: ArrearsLedgerItem; batchId: number; originalFilename: string; sheetName: string;
+  sourceRowNumber: number; identityKey: string; rawFields: Array<{ columnIndex: number; header: string; cellType?: string; value: string | null; formula?: string | null }>;
+  normalizedFields: Record<string, unknown>; assignmentStatus: string;
+  handlingTimeline: Array<HandlingTimelineEvent<ArrearsWorkOrderStatus>>
+}
+export type HandlingTimelineEvent<TStatus extends string> = {
+  sourceId: number; type: 'STATUS' | 'FOLLOW_UP'; previousStatus: TStatus | null;
+  newStatus: TStatus | null; note: string | null; actorUserId: number;
+  actorName: string | null; happenedAt: string
+}
+export const fetchArrearsLedger = (filters: ArrearsLedgerFilters = {}) => {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') params.set(key, String(value))
+  })
+  return fetchApi<ArrearsLedgerPage>(`/api/arrears?${params}`)
+}
+export const fetchArrearsLedgerDetail = (snapshotRecordId: number) => fetchApi<ArrearsLedgerDetail>(`/api/arrears/${snapshotRecordId}`)
+export const updateArrearsWorkOrder = (workOrderId: number, status?: ArrearsWorkOrderStatus, followUpNote?: string) =>
+  writeApi<{ workOrderId: number; status: ArrearsWorkOrderStatus; lastHandledByUserId: number; lastHandledByName: string; lastHandledAt: string; changed: boolean; statusChanged: boolean; followUpAdded: boolean }>(
+    `/api/arrears-work-orders/${workOrderId}/status`, { status, followUpNote }, 'PATCH')
+export const exportArrearsWorkOrders = async (filters: ArrearsLedgerFilters = {}) => {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== '' && key !== 'page' && key !== 'pageSize' && key !== 'statisticsKey') params.set(key, String(value))
+  })
+  const response = await fetch(`/api/arrears/work-orders/export?${params}`)
+  if (response.status === 401) window.dispatchEvent(new Event('session-expired'))
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { message?: string } | null
+    throw new Error(body?.message ?? `欠费工单报表导出失败: ${response.status}`)
+  }
+  return response.blob()
+}
+export const exportArrearsLedger = async (filters: ArrearsLedgerFilters = {}) => {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== '' && key !== 'page' && key !== 'pageSize') params.set(key, String(value))
+  })
+  const response = await fetch(`/api/arrears/export?${params}`)
+  if (response.status === 401) window.dispatchEvent(new Event('session-expired'))
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { message?: string } | null
+    throw new Error(body?.message ?? `欠费导出失败: ${response.status}`)
+  }
+  return response.blob()
+}
+export type LineExpiryLedgerFilters = {
+  statisticsKey?: string; statisticsDateFrom?: string; statisticsDateTo?: string;
+  groupQuery?: string; productQuery?: string; effectiveManagerUserId?: number;
+  remainingDaysMin?: number; remainingDaysMax?: number; renewalStatus?: RenewalStatus; page?: number; pageSize?: number
+}
+export type LineExpiryLedgerItem = {
+  snapshotRecordId: number; statisticsKey: string; groupCode: string; groupName: string;
+  productCode: string | null; productName: string | null; memberServiceNumber: string;
+  excelManagerName: string | null; effectiveManagerUserId: number | null; effectiveManagerName: string | null;
+  billingCutoffDate: string; remainingDays: number; workOrderId: number | null; renewalStatus: RenewalStatus;
+  lastHandledByUserId: number | null; lastHandledByName: string | null; lastHandledAt: string | null
+}
+export type RenewalStatus = '待处理' | '跟进中' | '已续签' | '不续签'
+export const renewalStatuses: RenewalStatus[] = ['待处理', '跟进中', '已续签', '不续签']
+export type LineExpiryLedgerPage = {
+  items: LineExpiryLedgerItem[]; total: number; page: number; pageSize: number;
+  statisticsKey: string | null; availableStatisticsKeys: string[];
+  availableRenewalStatuses: RenewalStatus[]; calculatedAt: string
+}
+export type LineExpiryLedgerDetail = {
+  item: LineExpiryLedgerItem; batchId: number; originalFilename: string; sheetName: string;
+  sourceRowNumber: number; identityKey: string; rawFields: Array<{ columnIndex: number; header: string; cellType?: string; value: string | null; formula?: string | null }>;
+  normalizedFields: Record<string, unknown>; assignmentStatus: string; calculatedAt: string;
+  availableRenewalStatuses: RenewalStatus[];
+  statusHistory: Array<{ previousStatus: RenewalStatus; newStatus: RenewalStatus; changedByUserId: number; changedByName: string | null; changedAt: string }>
+  handlingTimeline: Array<HandlingTimelineEvent<RenewalStatus>>
+}
+export const fetchLineExpiryLedger = (filters: LineExpiryLedgerFilters = {}) => {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') params.set(key, String(value))
+  })
+  return fetchApi<LineExpiryLedgerPage>(`/api/line-expiry?${params}`)
+}
+export const fetchLineExpiryLedgerDetail = (snapshotRecordId: number) => fetchApi<LineExpiryLedgerDetail>(`/api/line-expiry/${snapshotRecordId}`)
+export const exportLineExpiryLedger = async (filters: LineExpiryLedgerFilters = {}) => {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== '' && key !== 'page' && key !== 'pageSize') params.set(key, String(value))
+  })
+  const response = await fetch(`/api/line-expiry/export?${params}`)
+  if (response.status === 401) window.dispatchEvent(new Event('session-expired'))
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { message?: string } | null
+    throw new Error(body?.message ?? `专线导出失败: ${response.status}`)
+  }
+  return response.blob()
+}
+export const updateLineRenewalStatus = (workOrderId: number, status?: RenewalStatus, followUpNote?: string) =>
+  writeApi<{ workOrderId: number; status: RenewalStatus; lastHandledByUserId: number; lastHandledByName: string; lastHandledAt: string; changed: boolean; statusChanged: boolean; followUpAdded: boolean }>(
+    `/api/line-renewal-work-orders/${workOrderId}/status`, { status, followUpNote }, 'PATCH')
+export const exportLineRenewalWorkOrders = async (filters: LineExpiryLedgerFilters = {}) => {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== '' && key !== 'page' && key !== 'pageSize') params.set(key, String(value))
+  })
+  const response = await fetch(`/api/line-expiry/renewal-work-orders/export?${params}`)
+  if (response.status === 401) window.dispatchEvent(new Event('session-expired'))
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { message?: string } | null
+    throw new Error(body?.message ?? `续签工单报表导出失败: ${response.status}`)
+  }
+  return response.blob()
+}
+
+export type LedgerSourceType = 'ARREARS' | 'LINE_EXPIRY'
+export type LedgerValidationIssue = {
+  code: string; severity: 'BLOCKING' | 'WARNING'; message: string;
+  sheetName: string | null; rowNumber: number | null; columnIndex: number | null
+}
+export type LedgerRawField = { columnIndex: number; header: string; cellType: string; value: string | null; formula: string | null }
+export type LedgerParsedRow = {
+  sheetName: string; rowNumber: number; statisticsKey: string | null; identityKey: string | null;
+  excelManagerName: string | null; normalizedFields: Record<string, unknown>; rawFields: LedgerRawField[];
+  issues: LedgerValidationIssue[]
+}
+export type LedgerUploadPreview = {
+  batchId: number; sourceType: LedgerSourceType; statisticsKey: string | null;
+  originalFilename: string; fileSha256: string; byteSize: number; status: string;
+  totalRows: number; validRows: number; warningRows: number; errorRows: number; duplicate: boolean;
+  revision: { previousBatchId: number | null; addedRows: number; removedRows: number; changedRows: number; unchangedRows: number;
+    retainedRows: number; differences: Array<{ identityKey: string; changeType: string; previousImportRowId: number | null;
+      candidateImportRowId: number | null; previousFields: Record<string, unknown> | null;
+      candidateFields: Record<string, unknown> | null; changedFields: Array<{ header: string; occurrence: number;
+        before: string | null; after: string | null; cleared: boolean }> }> };
+  issues: LedgerValidationIssue[]; rows: LedgerParsedRow[]
+}
+export type LedgerImportBatch = {
+  batchId: number; sourceType: LedgerSourceType; statisticsKey: string | null; originalFilename: string;
+  sha256: string; originalFileSize: number; uploaderUsername: string; uploadedAt: string; confirmedAt: string | null;
+  status: string; contributingRows: number; contributionStatus: 'ALL' | 'PARTIAL' | 'NONE';
+  totalRows: number; validRows: number; warningRows: number; errorRows: number;
+  addedRows: number; removedRows: number; changedRows: number; unchangedRows: number; retainedRows: number;
+  erasedRows: number; originalFileAvailable: boolean; originalFilePurgeStatus: 'AVAILABLE' | 'PENDING' | 'PURGED'
+}
+export type LedgerImportBatchPage = { items: LedgerImportBatch[]; page: number; pageSize: number; total: number }
+export type LedgerImportBatchDetail = {
+  batch: LedgerImportBatch; validationSummary: { issues?: LedgerValidationIssue[]; [key: string]: unknown };
+  sheets: Array<{ sheetName: string; rowCount: number; firstRowNumber: number | null; lastRowNumber: number | null }>;
+  rows: Array<{ importRowId: number; sheetName: string; sourceRowNumber: number; identityKey: string | null;
+    validationStatus: string; rawFields: LedgerRawField[]; normalizedFields: Record<string, unknown>;
+    errors: unknown[]; warnings: unknown[]; assignmentExceptionType: string | null;
+    assignmentExceptionReason: string | null; assignmentExceptionStatus: string | null }>;
+  rowPage: { page: number; pageSize: number; total: number };
+  revisionDifferences: Array<{ identityKey: string; changeType: string; previousImportRowId: number | null; candidateImportRowId: number | null }>;
+  revisionDifferenceTotal: number
+}
+
+export async function precheckLedgerWorkbook(sourceType: LedgerSourceType, file: File): Promise<LedgerUploadPreview> {
+  const token = await fetchCsrfToken()
+  const data = new FormData()
+  data.append('file', file)
+  const response = await fetch(`/api/ledger-imports/precheck?sourceType=${sourceType}`, {
+    method: 'POST', headers: { 'X-XSRF-TOKEN': token }, body: data,
+  })
+  const body = await response.json().catch(() => null) as { data?: LedgerUploadPreview; message?: string } | null
+  if (response.status === 401) window.dispatchEvent(new Event('session-expired'))
+  if (!response.ok || !body?.data) throw new Error(body?.message ?? `Excel 预检失败: ${response.status}`)
+  return body.data
+}
+
+export const confirmLedgerWorkbook = (batchId: number) => writeApi<{
+  batchId: number; sourceType: LedgerSourceType; statisticsKey: string; confirmedRows: number;
+  warningRows: number; assignmentExceptionRows: number; currentVersion: boolean
+}>(`/api/ledger-imports/${batchId}/confirm`)
+
+export const cancelLedgerImportBatch = (batchId: number) => writeApi<{
+  batchId: number; status: 'CANCELLED'; sourceType: LedgerSourceType; statisticsKey: string | null
+}>(`/api/ledger-imports/${batchId}/cancel`)
+
+export function fetchLedgerImportBatches(filters: { sourceType?: LedgerSourceType; statisticsKey?: string; status?: string; page?: number; pageSize?: number } = {}) {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)) })
+  return fetchApi<LedgerImportBatchPage>(`/api/ledger-imports/batches?${params}`)
+}
+
+export function fetchLedgerImportBatch(batchId: number, rowPage = 1, pageSize = 20) {
+  const params = new URLSearchParams({ rowPage: String(rowPage), pageSize: String(pageSize) })
+  return fetchApi<LedgerImportBatchDetail>(`/api/ledger-imports/batches/${batchId}?${params}`)
+}
+
+export type LedgerErasurePreview = {
+  previewToken: string; expiresAt: string; sourceType: LedgerSourceType;
+  selectedRecords: Array<{ snapshotRecordId: number; statisticsKey: string; stableIdentity: string; groupCode: string; groupName: string }>;
+  periods: Array<{ statisticsKey: string; selectedRecords: number; historicalImportRows: number; snapshots: number;
+    affectedBatches: number; versions: number; revisionDiffs: number; assignmentExceptions: number; assignmentHistory: number;
+    workOrders: number; workOrderStatusChanges: number; workOrderFollowUps: number }>;
+  originalFiles: Array<{ filenames: string[]; referenceBatches: number; affectedPeriods: number; parsedBusinessKeys: number; otherBusinessKeys: number }>;
+  maxSelectedRecords: number
+}
+export type LedgerErasureResult = {
+  operationId: string; sourceType: LedgerSourceType; deletedRecords: number; deletedImportRows: number;
+  affectedBatches: number; filesQueued: number; originalFileStatus: 'RETAINED' | 'PENDING' | 'PURGED';
+  lockedVersions: Record<string, number>
+}
+export const previewLedgerErasure = (sourceType: LedgerSourceType, snapshotRecordIds: number[]) =>
+  writeApi<LedgerErasurePreview>('/api/ledger-erasure/preview', { sourceType, snapshotRecordIds })
+export const confirmLedgerErasure = (previewToken: string, deleteOriginalWorkbooks: boolean, confirmationText: string) =>
+  writeApi<LedgerErasureResult>('/api/ledger-erasure/confirm', {
+    previewToken, deleteOriginalWorkbooks, confirmationText,
+  })
+
+export async function downloadLedgerOriginalWorkbook(batchId: number) {
+  const response = await fetch(`/api/ledger-imports/${batchId}/original`)
+  if (response.status === 401) window.dispatchEvent(new Event('session-expired'))
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { message?: string } | null
+    throw new Error(body?.message ?? `原始工作簿下载失败: ${response.status}`)
+  }
+  return { blob: await response.blob(), sha256: response.headers.get('X-Content-SHA256') }
+}
+
+export const fetchAssignmentExceptions = (filters: AssignmentExceptionFilters = {}) => {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)) })
+  return fetchApi<AssignmentExceptionPage>(`/api/assignment-exceptions?${params}`)
+}
+export const fetchAssignmentException = (id: number) => fetchApi<AssignmentExceptionDetail>(`/api/assignment-exceptions/${id}`)
+export const assignExceptions = (payload: {
+  sourceType: string; snapshotRecordIds?: number[]; allFiltered?: boolean; statisticsKey?: string;
+  groupCode?: string; groupName?: string; excelManagerName?: string; batchId?: number; status?: string;
+  targetManagerUserId: number; reason?: string
+}) => writeApi<{ sourceType: string; selectedCount: number; targetManagerUserId: number }>('/api/assignment-exceptions/assign', payload)
 export const setUserStatus = (id: number, enabled: boolean) => writeApi(`/api/users/${id}`, { enabled }, 'PATCH')
-export const fetchUserScope = (id: number) => fetchApi<{ customerIds: number[] }>(`/api/users/${id}/scope`)
-export const saveUserScope = (id: number, customerIds: number[]) => writeApi(`/api/users/${id}/scope`, { customerIds }, 'PUT')
 export const fetchAuditLogs = (page = 1, pageSize = 15, filters: AuditFilters = {}) => {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
   Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)) })
   return fetchApi<{ items: AuditLog[]; total: number; page: number; pageSize: number }>(`/api/audit-logs?${params}`)
 }
-export const updateRiskRule = (code: string, payload: { threshold: number; operator: string; enabled: boolean }) => writeApi('/api/risk-rules', { code, ...payload })
-export const fetchRiskRuns = () => fetchApi<RiskRun[]>('/api/risk-recalculation/runs')
-export async function fetchRiskResults(customerId?: number): Promise<RiskResult[]> {
-  const rows = await fetchApi<RiskResult[]>('/api/risk-recalculation/results')
-  return rows.filter(row => customerId === undefined || row.customerId === customerId)
-}
-export const recalculateRisk = (customerIds?: number[]) => writeApi<{ runId: number; status: string; resultCount?: number; message?: string }>('/api/risk-recalculation', customerIds ? { customerIds } : undefined)
 
 export async function fetchHealth(): Promise<HealthResponse> {
   const response = await fetch('/api/health')
@@ -211,98 +376,4 @@ export async function fetchApi<T>(path: string): Promise<T> {
   }
   const body = await response.json() as { data: T }
   return body.data
-}
-
-export function fetchCustomers(): Promise<Customer[]> {
-  return fetchApi<Customer[]>('/api/customers')
-}
-
-export function fetchTasks(filters: TaskFilters = {}): Promise<Task[]> {
-  const params = new URLSearchParams()
-  Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)) })
-  return fetchApi<Task[]>(`/api/tasks?${params}`)
-}
-
-export function fetchWorkbenchSummary(): Promise<WorkbenchSummary> {
-  return fetchApi<WorkbenchSummary>('/api/workbench/summary')
-}
-
-export function fetchServices(): Promise<Service[]> { return fetchApi<Service[]>('/api/ledger/services') }
-export function fetchBills(): Promise<Bill[]> { return fetchApi<Bill[]>('/api/ledger/bills') }
-export function fetchExpiries(): Promise<Expiry[]> { return fetchApi<Expiry[]>('/api/ledger/expiries') }
-export function fetchRiskRules(): Promise<RiskRule[]> { return fetchApi<RiskRule[]>('/api/risk-rules') }
-export type ExceptionFilters = { status?: string | number; batchId?: string | number; sheetName?: string; sourceRowNumber?: string | number; exceptionId?: string | number; q?: string }
-export function fetchExceptions(filters: ExceptionFilters = {}): Promise<ExceptionRecord[]> {
-  const params = new URLSearchParams()
-  Object.entries(filters).forEach(([key,value]) => { if (value !== undefined && value !== '') params.set(key,String(value)) })
-  return fetchApi<ExceptionRecord[]>(`/api/imports/exceptions?${params}`)
-}
-export function fetchBatchExceptions(batchId: number): Promise<ExceptionRecord[]> { return fetchExceptions({ batchId }) }
-export function fetchImportRows(batchId: number, filters: {sheetName?:string;sourceRowNumber?:number;businessKey?:string} = {}): Promise<ImportRow[]> {
-  const params=new URLSearchParams();Object.entries(filters).forEach(([key,value])=>{if(value!==undefined&&value!=='')params.set(key,String(value))})
-  return fetchApi<ImportRow[]>(`/api/imports/${batchId}/rows?${params}`)
-}
-
-export function fetchImportBatches(): Promise<ImportBatch[]> {
-  return fetchApi<ImportBatch[]>('/api/imports')
-}
-
-export function completeTask(id: number): Promise<TaskActionResult> {
-  return writeApi<TaskActionResult>(`/api/tasks/${id}/complete`)
-}
-
-export async function createTask(request: { title: string; deadline: string; priority?: string; customerId: number; serviceId?: number; sourceType?: string; sourceId?: number; taskType?: string }): Promise<{ id: number; reused: boolean; message: string }> {
-  const token = await fetchCsrfToken()
-  const response = await fetch('/api/tasks', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': token },
-    body: JSON.stringify(request),
-  })
-  if (!response.ok) {
-    const body = await response.json().catch(() => null) as { message?: string } | null
-    throw new Error(body?.message ?? `任务创建失败: ${response.status}`)
-  }
-  return (await response.json()).data
-}
-
-export type ImportPreview = {
-  batchId: number
-  fileName: string
-  fileSha256: string
-  totalRows: number
-  validRows: number
-  excludedRows: number
-  invalidRows: number
-  workbookErrors: string[]
-  rows: Array<{ rowNumber: number; sheetName: string; businessKey: string; customerCode: string; customerName: string; classification: string; reason?: string }>
-}
-export async function previewImport(file: File): Promise<ImportPreview> {
-  const token = await fetchCsrfToken()
-  const data = new FormData()
-  data.append('file', file)
-  const response = await fetch('/api/imports/preview', {
-    method: 'POST',
-    headers: { 'X-XSRF-TOKEN': token },
-    body: data,
-  })
-  const body = await response.json() as { data: ImportPreview; message?: string }
-  if (!response.ok) throw new Error(body.message ?? `导入预检失败: ${response.status}`)
-  return body.data
-}
-
-export const cancelImport = (batchId: number) => writeApi(`/api/imports/${batchId}/cancel`)
-export const fetchSavedPreview = (batchId: number) => fetchApi<ImportPreview>(`/api/imports/${batchId}/preview`)
-
-export async function confirmImport(batchId: number): Promise<{ status: string; message: string; insertedRows: number; updatedRows: number; duplicateRows: number }> {
-  const token = await fetchCsrfToken()
-  const response = await fetch('/api/imports/confirm', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': token },
-    body: JSON.stringify({ batchId }),
-  })
-  if (!response.ok) {
-    const body = await response.json().catch(() => null) as { message?: string } | null
-    throw new Error(body?.message ?? `正式导入失败: ${response.status}`)
-  }
-  return (await response.json()).data
 }

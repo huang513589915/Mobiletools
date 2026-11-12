@@ -10,9 +10,16 @@
 mysql -h 127.0.0.1 -P 3306 -u root -p -e "CREATE DATABASE IF NOT EXISTS arrears_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 Get-Content -Raw backend/src/main/resources/schema.sql | mysql -h 127.0.0.1 -P 3306 -u root -p
 Get-Content -Raw db/migrations/V1__enterprise_arrears_schema.sql | mysql -h 127.0.0.1 -P 3306 -u root -p arrears_management
+Get-Content -Raw db/migrations/V2__independent_excel_ledgers.sql | mysql -h 127.0.0.1 -P 3306 -u root -p arrears_management
+Get-Content -Raw db/migrations/V3__cancel_prechecked_ledger_import.sql | mysql -h 127.0.0.1 -P 3306 -u root -p arrears_management
+Get-Content -Raw db/migrations/V4__line_renewal_work_orders.sql | mysql -h 127.0.0.1 -P 3306 -u root -p arrears_management
+Get-Content -Raw db/migrations/V5__ledger_work_orders_and_follow_ups.sql | mysql -h 127.0.0.1 -P 3306 -u root -p arrears_management
+Get-Content -Raw db/migrations/V6__composed_ledger_datasets.sql | mysql -h 127.0.0.1 -P 3306 -u root -p arrears_management
+Get-Content -Raw db/migrations/V7__remove_unsupported_legacy_modules.sql | mysql -h 127.0.0.1 -P 3306 -u root -p arrears_management
+Get-Content -Raw db/migrations/V8__permanent_ledger_record_erasure.sql | mysql -h 127.0.0.1 -P 3306 -u root -p arrears_management
 ```
 
-当前项目未配置 Flyway，增量 SQL 需要人工评审、备份后执行。不要把测试数据库备份上传到公共仓库。
+全新数据库按 V1–V8 顺序初始化。已有数据库先确认当前迁移版本；V1–V5 后依次执行 V6–V8，V1–V6 后执行 V7–V8，V1–V7 后执行 V8。当前项目未配置 Flyway，增量 SQL 需要人工评审、备份后执行。V7 会删除旧模块表，执行前须核对旧数据无需保留；不要把测试数据库备份上传到公共仓库。
 
 ## 环境变量
 
@@ -49,15 +56,13 @@ npm run dev -- --host 127.0.0.1
 
 项目提供 PowerShell 脚本，脚本不会自动执行迁移、清库或导入数据：
 
+Windows 用户可以直接双击项目根目录下的 `start-project.bat` 启动，双击 `stop-project.bat` 停止。批处理窗口会保留，便于查看错误信息。
+
 ```powershell
 .\scripts\start-project.ps1
 ```
 
-如果需要脚本启动一个已安装但未运行的 MySQL Windows 服务：
-
-```powershell
-.\scripts\start-project.ps1 -MySqlServiceName MySQL84
-```
+启动脚本优先使用仓库 `.runtime\mysql\my.ini` 指向的本地 MySQL 实例；如果本机没有该实例，请先手动启动 MySQL 或安装 MySQL 8.x。脚本不会管理无关的 Windows 服务。
 
 停止由脚本启动的前后端：
 
@@ -82,7 +87,7 @@ npm run build
 mysqldump -h 127.0.0.1 -P 3306 -u root -p --single-transaction --routines --triggers arrears_management > arrears_management-backup.sql
 ```
 
-恢复前先确认目标库并在临时数据库验证备份，避免覆盖正式数据。项目默认不自动执行恢复和数据库迁移。
+管理员永久删除台账记录后，数据库和可选的原始工作簿物理文件会按所选范围清理；外部数据库备份、文件副本和离线存储不会自动清理。恢复删除前备份可能重新带回已删除记录。恢复前先在临时数据库和临时文件目录联合验证备份，再确认目标库，避免覆盖当前数据。项目默认不自动执行恢复和数据库迁移。
 
 ## 排障顺序
 

@@ -1,5 +1,7 @@
 package com.mobiletools.arrears.common.api;
 
+import com.mobiletools.arrears.dataingestion.ledger.OriginalWorkbookDestroyedException;
+import com.mobiletools.arrears.dataingestion.ledger.StaleLedgerErasurePreviewException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -18,5 +20,17 @@ public class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ApiResponse<Void> forbidden(AccessDeniedException exception) {
         return new ApiResponse<>("FORBIDDEN", "无权执行该操作", null);
+    }
+
+    @ExceptionHandler(OriginalWorkbookDestroyedException.class)
+    @ResponseStatus(HttpStatus.GONE)
+    public ApiResponse<Void> originalWorkbookGone(OriginalWorkbookDestroyedException exception) {
+        return new ApiResponse<>("ORIGINAL_WORKBOOK_GONE", exception.getMessage(), null);
+    }
+
+    @ExceptionHandler(StaleLedgerErasurePreviewException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Void> staleErasurePreview(StaleLedgerErasurePreviewException exception) {
+        return new ApiResponse<>("ERASURE_PREVIEW_STALE", exception.getMessage(), null);
     }
 }

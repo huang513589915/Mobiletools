@@ -123,4 +123,4 @@ scripts/          数据处理辅助脚本
 
 维护时先读本文件、`project-facts.md`、`database-design.md` 和 `api-reference.md`，再读对应控制器、前端组件和测试。结构变更应先备份、检查存量冲突、评审增量迁移并更新事实基线。业务规则变更应同时更新规则版本、测试和 OpenSpec 规格。
 
-历史参考文件包括根目录 `project.md`、`README.md`、`docs/` 下 R1/R2 文档、OpenSpec 变更 `openspec/changes/define-local-mvp-requirements-v2` 和 `db/migrations/V1__enterprise_arrears_schema.sql`。
+历史参考文件包括早期根目录 `project.md`、旧版 `README.md`、早期 `docs/` R1/R2 文档、已归档的 OpenSpec 变更 `openspec/changes/archive/2026-10-26-define-local-mvp-requirements-v2` 和 `db/migrations/V1__enterprise_arrears_schema.sql`。当前业务基线请以根目录 `REQUIREMENTS.md`、`docs/independent-excel-ledgers/` 和 `openspec/specs/` 为准。
